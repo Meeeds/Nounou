@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+    <title>All Nounou</title>
+    <style>
+      /* Always set the map height explicitly to define the size of the div
+       * element that contains the map. */
+      #map {
+        height: 100%;
+      }
+      /* Optional: Makes the sample page fill the window. */
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+
+	
+	
+var infowindow;
+//return [self._name, self._adress, self._dispo, self._places, self._proposition, self._updated,self._phone, depuisRue, depuisLibanais]
+function infoWindow(marker, map, theLocation) {
+	google.maps.event.addListener(marker, 'click', function () {
+		var html = "<div><h3>" + theLocation[0] + "</h3><p>" + theLocation[1] + "<br> dispo:" + theLocation[2] + "<br> places:" + theLocation[3]+ "<br> prop:" + theLocation[4] + "<br>" + theLocation[6] + "<br> commentaire:" + theLocation[11] + "<br> update:" + theLocation[5] + "</div><a target='_blank' href='" + theLocation[7] + "'>depuis rue</a><br><a target='_blank' href='" + theLocation[8] + "'>depuis libanais</a></p></div>";
+		
+		if (infowindow) infowindow.close();
+        infowindow = new google.maps.InfoWindow({
+			content: html,
+			maxWidth: 350
+		});
+        infowindow.open(map, marker);
+	});
+}
+	
+/*var locations = [
+  ['Location 1 Name', '47 avenue Paul Eluard , 06600 Antibes', 'Location 1 URL'],
+  ['Location 2 Name', '741, Ch des Moyennes Breguieres , 06600 Antibes', 'Location 2 URL'],
+  ['Location 3 Name', '233, route de Grasse , 06600 Antibes', 'Location 3 URL']
+];*/
+
+var locations = VARIABLE_FROM_PYTHON_SCRIPT ;
+
+var geocoder;
+var map;
+var bounds;
+var NumberOfOkGeoCode = 0 ;
+var markers = [];
+
+var locations_gps = []
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function logCallback(message) {
+	console.log(message)
+}
+
+
+var GOOGLE_MAP_ICONS = [
+'.png',
+'-pushpin.png'
+];
+
+
+function AddUniqueGPS(uniqueArray, object, Callbacklog, retryCount){
+
+    var found = false;
+
+    for(var i=0; i < uniqueArray.length ; i++){
+        if(object.googleObj.lat() == uniqueArray[i].googleObj.lat() && object.googleObj.lng() == uniqueArray[i].googleObj.lng()){
+            found = true;
+            break;
+        }
+    }
+    
+    if(found){
+        Callbacklog("find duplicate GPS " + object.googleObj);
+        AddUniqueGPS(uniqueArray, {   nounou: object.nounou   ,googleObj: new google.maps.LatLng(object.googleObj.lat()-0.0001, object.googleObj.lng()-0.0002)}, Callbacklog, retryCount+1);
+    }else{
+        if(retryCount==0){
+            uniqueArray.push( {nounou: object.nounou ,  googleObj: object.googleObj, myIcon : GOOGLE_MAP_ICONS[0]} ) 
+        }else{
+            uniqueArray.push( {nounou: object.nounou ,  googleObj: object.googleObj, myIcon : GOOGLE_MAP_ICONS[1]} ) 
+        }
+    }
+}
+
+function generateMarkers(Callbacklog){
+
+    var locations_gps_unique = [];
+    
+    //locations_gps_unique.push(locations_gps[0]);
+    
+    for ( var i=0, len=locations_gps.length; i < len; i++ ){
+        AddUniqueGPS(locations_gps_unique, locations_gps[i], Callbacklog, 0);
+    }   
+    
+    Callbacklog("generateMarkers " + locations_gps_unique);
+    
+    for (  var j=0, len=locations_gps_unique.length; j < len; j++){
+    
+        //Callbacklog("unique_loc " + locations_gps_unique[j]);
+        
+        
+        var title = locations_gps_unique[j].nounou[0];
+        var address = locations_gps_unique[j].nounou[1];
+        var url = locations_gps_unique[j].nounou[2];
+        //var url2 = locations_gps_unique[j].nounou[3];
+        var color = locations_gps_unique[j].nounou[9];
+        var tLabel = locations_gps_unique[j].nounou[10];
+        
+    
+        var marker = new google.maps.Marker({
+          icon: 'http://maps.google.com/mapfiles/ms/icons/'+color+locations_gps_unique[j].myIcon,
+		  label : tLabel,
+          map: map,
+          position: locations_gps_unique[j].googleObj,
+          title: title,
+          animation: google.maps.Animation.DROP,
+          address: address,
+          url: url
+        });
+        
+        infoWindow(marker, map, locations_gps_unique[j].nounou)
+        //bounds.extend(marker.getPosition());
+        //map.fitBounds(bounds); )
+
+    }
+}
+
+async function retryCallback(locations, i, retryCount) {
+	console.log(retryCount + " retry " + locations[i][1] )
+	await sleep(1000);
+	geocodeAddress(locations, i, retryCallback,logCallback, retryCount, generateMarkers)
+}
+
+async function initialize() {
+  map = new google.maps.Map(
+    document.getElementById("map"), {
+        center: new google.maps.LatLng(43.592089, 7.109775),
+        zoom: 13,
+      //mapTypeId: google.maps.MapTypeId.ROADMAP
+    });
+  geocoder = new google.maps.Geocoder();
+  bounds = new google.maps.LatLngBounds();
+
+  /*for (i = 0; i < locations.length; i++) {
+	geocodeAddress(locations, i, retryCallback,logCallback, 0)
+  }*/
+  
+  geocodeAddress(locations, 0, retryCallback,logCallback, 0, generateMarkers)
+  
+  
+  /*var markerCluster = new MarkerClusterer(map, markers,
+            {imagePath: 'https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m'});*/
+}
+//google.maps.event.addDomListener(window, "load", initialize);
+
+function geocodeAddress(locations, i, callbackretry, Callbacklog, retryCount, generateMarkersFunc) {
+  var title = locations[i][0];
+  var address = locations[i][1];
+  var url = locations[i][2];
+  var url2 = locations[i][3];
+  var color = locations[i][9];
+  var tLabel = locations[i][10];
+  geocoder.geocode({
+      'address': locations[i][1]
+    },
+
+    function(results, status) {
+      if (status == google.maps.GeocoderStatus.OK) {
+
+        locations_gps.push( { nounou: locations[i] , googleObj: results[0].geometry.location} )
+		
+		NumberOfOkGeoCode = NumberOfOkGeoCode+1;
+		Callbacklog(NumberOfOkGeoCode+ " geocodeAddress ok for " + address)
+        if(i+1<locations.length){
+            geocodeAddress(locations, i+1, retryCallback,logCallback, 0, generateMarkersFunc)
+        }else{
+            Callbacklog(locations_gps.length + "=" + locations.length  + " OK LOCATIONS FOUND " + locations_gps)
+            generateMarkersFunc(Callbacklog);
+        }
+      } else if (status == google.maps.GeocoderStatus.OVER_QUERY_LIMIT) {
+		Callbacklog("OVER_QUERY_LIMIT for "  + address + " wait 3 secondes");
+		callbackretry(locations, i, retryCount+1);
+      } else {
+        Callbacklog("geocode of " + address + " failed:" + status);
+		alert("geocode of " + address + " failed:" + status);
+      }
+    });
+}
+    </script>
+    <script src="https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/markerclusterer.js">
+    </script>
+	<script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=CARTE_GLOBAL_KEY&callback=initialize">
+    </script>
+  </body>
+</html>
