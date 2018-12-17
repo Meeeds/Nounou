@@ -2,6 +2,7 @@
 import csv,re,sys,codecs, os
 from stat import S_IREAD, S_IRGRP, S_IROTH, S_IWUSR
 
+import google_keys
 
 TEXT_TOREMOVE_FROMADRESS=[
 "Les Bastides du Micocoulier",
@@ -43,11 +44,18 @@ TEXT_TOREMOVE_FROMADRESS=[
 " Le Corail",
 " L'Orchidee",
 ' "Les Castors"',
-"Residence Les Oliviers Bat A"
+"Residence Les Oliviers Bat A",
+"Le Tananarive"
 ]
 
 #43.592120, 7.109704 = 965 chemin du puy, 06600 Antibes
 #43.5909601,7.1091283 = libanais (+200m)
+
+CARTE_GLOBAL_KEY=google_keys.CARTE_GLOBAL_KEY
+KEY=google_keys.KEY
+#google_keys
+print CARTE_GLOBAL_KEY, KEY
+
 
 TEMPLATE_HTML="""
   <tr>
